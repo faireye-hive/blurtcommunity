@@ -13,6 +13,52 @@ let currentPostOffset = 0;
 let isLoading = false;        
 let searchTimeout;            // *** NOVO: Variável para Debouncing da busca ***
 
+function convertMarkdownToHtml(markdownText) {
+    // A função marked.parse() faz o trabalho pesado de conversão de Markdown para HTML.
+    // O `marked.js` deve ser carregado no index.html antes deste script.
+    return marked.parse(markdownText || '', { sanitize: true }); 
+}
+
+async function loadPostInModal(author, permlink) {
+    const titleElement = document.getElementById('postModalLabel');
+    const contentElement = document.getElementById('modal-post-content');
+    const authorElement = document.getElementById('modal-post-author');
+    const votesElement = document.getElementById('modal-post-votes');
+    const commentsElement = document.getElementById('modal-post-comments');
+
+    // 1. Resetar o conteúdo do modal
+    titleElement.textContent = 'Carregando...';
+    contentElement.innerHTML = `<div class="text-center p-5 text-muted"><i class="bi bi-arrow-clockwise h4 spin"></i> Carregando conteúdo...</div>`;
+    authorElement.textContent = '';
+    votesElement.textContent = '0';
+    commentsElement.textContent = '0';
+
+    try {
+        // 2. Chamar a API para obter o conteúdo completo do post
+        // Usaremos bridge.get_post pois é mais simples que getContent
+        const postData = await rpcCall('bridge.get_post', { author: author, permlink: permlink });
+
+        if (!postData) {
+            contentElement.innerHTML = `<div class="alert alert-warning text-center">Postagem não encontrada.</div>`;
+            return;
+        }
+
+        // 3. Preencher o modal com os dados
+        titleElement.textContent = postData.title;
+        authorElement.textContent = `Publicado por @${postData.author}`;
+        votesElement.textContent = postData.active_votes.length;
+        commentsElement.textContent = postData.children;
+        
+        // 4. Converter e Injetar o Conteúdo
+        const htmlContent = convertMarkdownToHtml(postData.body);
+        contentElement.innerHTML = htmlContent;
+
+    } catch (error) {
+        console.error("Erro ao carregar o post no modal:", error);
+        titleElement.textContent = 'Erro';
+        contentElement.innerHTML = `<div class="alert alert-danger text-center">Falha ao carregar o post: ${error.message}</div>`;
+    }
+}
 
 // Função para chamadas de API (permanece a mesma)
 async function rpcCall(method, params = {}, id = 1) {
@@ -310,22 +356,27 @@ function handleUrlChange() {
 
 // *** BLOCO DE EXECUÇÃO FINAL (Inicialização) ***
 (async () => {
-    // 1. Aguarda o carregamento da info da comunidade e membros (com caching e tratamento de erros)
+    // ... (carregamento inicial de comunidade e posts - INALTERADO) ...
     await loadCommunity();
-
-    // 2. Pré-carrega os posts principais (para cache e filtros) e renderiza a primeira página
     await loadPostsByTag(COMMUNITY_NAME, 'posts-list');
-    
-    // 3. Lida com o estado inicial da URL (qual aba deve ser aberta)
     handleUrlChange();
-
-    // 4. Configura Listeners
-    // *** NOVO: Listener de busca com Debouncing ***
+    
     document.getElementById('member-search').addEventListener('keyup', handleMemberSearch);
-    
-    // Listener para o Deep Linking / Navegação entre abas
     window.addEventListener('hashchange', handleUrlChange);
-    
-    // Listener de Infinite Scroll
     window.addEventListener('scroll', handleInfiniteScroll);
+
+    // *** NOVO: Listener para abrir o Modal ***
+    const postModalElement = document.getElementById('postModal');
+    postModalElement.addEventListener('show.bs.modal', function (event) {
+        // Pega o elemento que disparou o modal (o item do post clicado)
+        const postItem = event.relatedTarget; 
+        
+        // Extrai os dados do post dos atributos 'data'
+        const author = postItem.getAttribute('data-author');
+        const permlink = postItem.getAttribute('data-permlink');
+
+        if (author && permlink) {
+            loadPostInModal(author, permlink);
+        }
+    });
 })();

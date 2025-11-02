@@ -9,10 +9,13 @@ export function createPostItem(post) {
     const item = document.createElement('a');
     item.className = 'list-group-item list-group-item-action d-flex gap-3 align-items-center';
 
-    // *** NOVO: Configuração de link externo seguro ***
-    item.href = `https://blurt.blog/${post.category}/@${post.author}/${post.permlink}`; 
-    item.target = "_blank";
-    item.rel = "noopener noreferrer"; // Boa prática de segurança e performance
+    // *** ALTERADO: Atributos para abrir o Modal e identificar o post ***
+    item.setAttribute('data-bs-toggle', 'modal');
+    item.setAttribute('data-bs-target', '#postModal');
+    item.setAttribute('data-author', post.author);
+    item.setAttribute('data-permlink', post.permlink);
+    
+    // O link externo foi removido
     
     // Garantia de segurança (XSS)
     const image = post.json_metadata?.image?.[0] || 'https://blurt.blog/images/placeholder.png';
