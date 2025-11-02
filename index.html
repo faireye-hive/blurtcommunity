@@ -1,0 +1,163 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Blurt Community Page</title>
+<style>
+  body {
+    font-family: Arial, sans-serif;
+    background: #f4f4f4;
+    margin: 0;
+    padding: 0;
+    display: flex;
+    justify-content: center;
+  }
+  .container {
+    display: grid;
+    grid-template-columns: 250px 1fr 250px;
+    gap: 20px;
+    width: 1200px;
+    margin-top: 20px;
+  }
+  @media (max-width: 1024px) {
+    .container { grid-template-columns: 1fr; width: 95%; }
+  }
+  .sidebar, .rightbar { background: #fff; padding: 15px; border-radius: 10px; }
+  .main-content { background: #fff; border-radius: 10px; overflow: hidden; }
+  .banner { width: 100%; height: 250px; background: url('https://upload.wikimedia.org/wikipedia/commons/2/24/Ferrari_F8_Tributo_IMG_0336.jpg') center/cover; }
+  .nav-tabs { display: flex; justify-content: center; background: #f0f0f0; border-bottom: 1px solid #ddd; }
+  .nav-tabs button { padding: 10px 20px; border: none; background: none; cursor: pointer; font-weight: bold; color: #333; transition: all 0.3s; }
+  .nav-tabs button.active { border-bottom: 3px solid #d40000; color: #d40000; }
+  .tab-content { display: none; padding: 15px; opacity: 0; transition: opacity 0.35s ease; }
+  .tab-content.active { display: block; opacity: 1; }
+  .profile-box img.logo-img { width: 100%; border-radius: 10px; }
+  .profile-head { display:flex; align-items:center; gap:12px; margin-top:8px }
+  .post { display: flex; gap: 10px; padding: 15px; border-bottom: 1px solid #eee; align-items: center; }
+  .post img { width: 150px; height: 100px; object-fit: cover; border-radius: 5px; }
+  .subscribe-btn { width: 100%; padding: 8px; border: none; background: #d40000; color: #fff; border-radius: 5px; cursor: pointer; margin: 10px 0; }
+</style>
+</head>
+<body>
+  <div class="container">
+    <aside class="sidebar" id="left-sidebar">
+      <div class="profile-box">
+        <img class="logo-img" src="https://upload.wikimedia.org/wikipedia/en/3/3d/Ferrari-Logo.svg" alt="Logo">
+        <div class="profile-head">
+          <div>
+            <h3 id="community-name">Loading...</h3>
+            <p id="community-tagline"></p>
+          </div>
+        </div>
+        <button class="subscribe-btn">SUBSCRIBE</button>
+      </div>
+      <div class="about-box" id="community-about">
+        <p><strong>Website:</strong><br><a id="community-website" href="#">—</a></p>
+        <p><strong>About:</strong><br><span id="community-desc">Loading...</span></p>
+      </div>
+    </aside>
+
+    <main class="main-content">
+      <div class="banner"></div>
+      <div class="nav-tabs">
+        <button class="tab-btn active" data-tab="posts">Posts</button>
+        <button class="tab-btn" data-tab="forum">Forum</button>
+        <button class="tab-btn" data-tab="poll">Poll</button>
+      </div>
+      <section id="posts" class="tab-content active">
+        <div id="posts-list"></div>
+      </section>
+      <section id="forum" class="tab-content">
+        <p>Forum discussions will appear here...</p>
+      </section>
+      <section id="poll" class="tab-content">
+        <p>Polls will be displayed here...</p>
+      </section>
+    </main>
+
+    <aside class="rightbar">
+      <h3>Share your moment!</h3>
+      <button class="subscribe-btn">STEEM IT</button>
+      <h4>Members Rank</h4>
+      <div id="members"></div>
+    </aside>
+  </div>
+
+<script>
+async function fetchBlurtCommunity(communityName) {
+  const rpcUrl = 'https://rpc.blurt.world';
+  const payload = {
+    jsonrpc: '2.0',
+    method: 'bridge.get_community',
+    params: { name: communityName },
+    id: 1
+  };
+  const res = await fetch(rpcUrl, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload)
+  });
+  const json = await res.json();
+  return json.result;
+}
+
+async function fetchCommunityPosts(tag = 'blurt-143557', limit = 10) {
+  const rpcUrl = 'https://rpc.blurt.world';
+  const payload = {
+    jsonrpc: '2.0',
+    method: 'bridge.get_ranked_posts',
+    params: {
+      sort: 'trending',
+      tag: tag,
+      limit: limit
+    },
+    id: 2
+  };
+  const res = await fetch(rpcUrl, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload)
+  });
+  const json = await res.json();
+  return json.result;
+}
+
+async function loadCommunity() {
+  const data = await fetchBlurtCommunity('blurt-143557');
+  if (!data) return;
+  document.getElementById('community-name').textContent = data.title || data.name;
+  document.getElementById('community-tagline').textContent = data.about || '';
+  document.getElementById('community-website').href = data.url || '#';
+  document.getElementById('community-website').textContent = data.url || '—';
+  document.getElementById('community-desc').textContent = data.description || data.about || '';
+}
+
+async function loadPosts() {
+  const posts = await fetchCommunityPosts();
+  const list = document.getElementById('posts-list');
+  list.innerHTML = '';
+  posts.forEach(post => {
+    const div = document.createElement('div');
+    div.className = 'post';
+    div.innerHTML = `
+      <img src="${post.image || 'https://blurt.blog/images/placeholder.png'}" alt="thumb">
+      <div>
+        <h4>${post.title}</h4>
+        <p>by @${post.author}</p>
+      </div>
+    `;
+    list.appendChild(div);
+  });
+}
+
+function setActiveTab(tabName) {
+  document.querySelectorAll('.tab-btn').forEach(b => b.classList.toggle('active', b.dataset.tab === tabName));
+  document.querySelectorAll('.tab-content').forEach(c => c.classList.toggle('active', c.id === tabName));
+}
+document.querySelectorAll('.tab-btn').forEach(btn => btn.addEventListener('click', () => setActiveTab(btn.dataset.tab)));
+
+loadCommunity();
+loadPosts();
+</script>
+</body>
+</html>
