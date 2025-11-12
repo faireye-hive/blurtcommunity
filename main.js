@@ -11,7 +11,9 @@ import {
   displayModalError,
   toggleTabVisibility,
   displayCommunityError,
+  renderAuthStatus,
 } from "./render.js";
+import { loginWithKeychain, logout, isKeychainInstalled } from "./auth.js";
 
 // Desestrutura as constantes (agora incluindo PAGE_SIZE e CACHE_TTL)
 const {
@@ -30,6 +32,7 @@ const state = {
   currentPostOffset: 0,
   isLoading: false,
   searchTimeout: null,
+  currentUser: null,
 };
 
 async function loadPostInModal(author, permlink) {
@@ -145,6 +148,25 @@ async function loadCommunity() {
   }
 }
 
+// *** LOGIN ***
+async function handleLogin() {
+    // Verifica se o Keychain está presente ANTES de abrir o modal
+    if (!isKeychainInstalled()) {
+        alert('Hive/Blurt Keychain não encontrado. Por favor, instale a extensão para prosseguir.');
+        return;
+    }
+
+    // Abre o modal de input
+const loginModal = new window.bootstrap.Modal(document.getElementById('loginInputModal'));
+    loginModal.show();
+}
+
+function handleLogout() {
+  logout();
+  state.currentUser = null;
+  renderAuthStatus(null); // ATUALIZA A UI
+  alert("Logout realizado com sucesso.");
+}
 // *** NOVO: Função de Busca com Debouncing ***
 function handleMemberSearch() {
   clearTimeout(state.searchTimeout); // Limpa o timer anterior
@@ -334,19 +356,68 @@ function handleUrlChange() {
   }
 }
 
+
+async function startKeychainLogin() {
+    const usernameInput = document.getElementById('username-input');
+    const messageDiv = document.getElementById('login-modal-message');
+    const username = usernameInput.value.trim().toLowerCase();
+
+    if (!username) {
+        messageDiv.textContent = 'O nome de usuário é obrigatório.';
+        return;
+    }
+    
+    messageDiv.textContent = 'Solicitando confirmação...';
+    
+    // Tenta o login com o nome de usuário fornecido
+    const loggedInUsername = await loginWithKeychain(username);
+
+    // Esconde o modal de input
+const loginModal = window.bootstrap.Modal.getInstance(document.getElementById('loginInputModal'));
+    if (loginModal) { // Adicionar verificação para evitar erro caso o modal não esteja ativo
+        loginModal.hide();
+    }
+    
+    // ----------------------------------------------------
+    // Lógica de Atualização de Estado (Igual à anterior)
+    // ----------------------------------------------------
+    if (loggedInUsername) {
+        state.currentUser = loggedInUsername;
+        localStorage.setItem(CACHE_KEYS.CURRENT_USER, loggedInUsername);
+        renderAuthStatus(loggedInUsername);
+        alert(`Bem-vindo, @${loggedInUsername}!`);
+    } else {
+        // Se falhar (usuário cancelou, etc.), mantém o estado deslogado
+        state.currentUser = null;
+        renderAuthStatus(null);
+    }
+    
+    // Limpar o input e a mensagem para a próxima vez
+    usernameInput.value = '';
+    messageDiv.textContent = '';
+}
+
 // *** BLOCO DE EXECUÇÃO FINAL (Inicialização) ***
 (async () => {
+  // 1. Carregar usuário logado (Persistência)
+  const storedUser = localStorage.getItem(CACHE_KEYS.CURRENT_USER);
+  if (storedUser) {
+    state.currentUser = storedUser;
+    renderAuthStatus(storedUser); // RENDERIZA O ESTADO INICIAL
+  } else {
+    renderAuthStatus(null); // RENDERIZA O BOTÃO DE LOGIN
+  }
   // ... (carregamento inicial de comunidade e posts - INALTERADO) ...
   await loadCommunity();
   await loadPostsByTag(COMMUNITY_NAME, "posts-list");
   handleUrlChange();
 
+  document.getElementById('confirm-login-button')?.addEventListener('click', startKeychainLogin);
   document
     .getElementById("member-search")
     .addEventListener("keyup", handleMemberSearch);
   window.addEventListener("hashchange", handleUrlChange);
   window.addEventListener("scroll", handleInfiniteScroll);
-
   document.addEventListener("click", (event) => {
     // Busca o elemento que foi clicado (ou seu ancestral mais próximo)
     // que tenha o atributo 'data-permlink' (ou seja, um item de postagem).
@@ -362,10 +433,22 @@ function handleUrlChange() {
       loadPostInModal(author, permlink);
 
       // 2. Abre o modal programaticamente usando o JS do Bootstrap 5
-      const modal = new bootstrap.Modal(document.getElementById("postModal"));
+const modal = new window.bootstrap.Modal(document.getElementById("postModal"));
       modal.show();
     }
   });
 
-  
+
+
+document.getElementById("auth-status").addEventListener("click", (event) => {
+    // Isso verifica se o clique ocorreu DENTRO do botão #login-button
+    if (event.target.closest("#login-button")) { 
+      handleLogin();
+    // Isso verifica se o clique ocorreu DENTRO do botão #logout-button
+    } else if (event.target.closest("#logout-button")) { 
+      handleLogout();
+    }
+  });
+
+
 })();

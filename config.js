@@ -22,7 +22,8 @@ export const CONFIG = {
     CACHE_KEYS: {
         ALL_POSTS: 'allposts1',
         COMMUNITY_INFO: 'communityInfo',
-        MEMBER_LIST: 'memberList'
+        MEMBER_LIST: 'memberList',
+        CURRENT_USER: 'currentUser',
     },
 
     // Lista de tags secundárias que serão filtradas em abas específicas

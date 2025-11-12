@@ -87,3 +87,24 @@ export function toggleTabVisibility(hash, tabId) {
     }
 }
 
+export function renderAuthStatus(username) {
+    const authDiv = document.getElementById('auth-status');
+    if (!authDiv) return;
+
+    if (username) {
+        // Estado logado: Deve renderizar o nome e o botão de LOGOUT
+        authDiv.innerHTML = `
+            <span class="me-3 text-success fw-bold">@${username}</span>
+            <button id="logout-button" class="btn btn-sm btn-outline-danger">
+                <i class="bi bi-box-arrow-right"></i> Sair
+            </button>
+        `;
+    } else {
+        // Estado deslogado: Deve renderizar o botão de LOGIN
+        authDiv.innerHTML = `
+            <button id="login-button" class="btn btn-sm btn-outline-success">
+                <i class="bi bi-key-fill"></i> Login
+            </button>
+        `;
+    }
+}
