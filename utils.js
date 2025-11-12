@@ -6,41 +6,34 @@
  * @returns {HTMLElement} O elemento 'a' completo.
  */
 export function createPostItem(post) {
-    const item = document.createElement('a');
-    item.className = 'list-group-item list-group-item-action d-flex gap-3 align-items-center';
-
-    // *** ALTERADO: Atributos para abrir o Modal e identificar o post ***
-    item.setAttribute('data-bs-toggle', 'modal');
-    item.setAttribute('data-bs-target', '#postModal');
-    item.setAttribute('data-author', post.author);
-    item.setAttribute('data-permlink', post.permlink);
-    
-    // O link externo foi removido
-    
-    // Garantia de segurança (XSS)
     const image = post.json_metadata?.image?.[0] || 'https://blurt.blog/images/placeholder.png';
 
-    const imgElement = document.createElement('img');
-    imgElement.src = image;
-    imgElement.width = 80;
-    imgElement.height = 60;
-    imgElement.className = 'rounded';
-    
-    const contentDiv = document.createElement('div');
-    
-    const title = document.createElement('h6');
-    title.className = 'mb-1';
-    title.textContent = post.title; // Seguro contra XSS
-    
-    const author = document.createElement('small');
-    author.className = 'text-muted';
-    author.textContent = `by @${post.author}`; // Seguro contra XSS
-    
-    contentDiv.appendChild(title);
-    contentDiv.appendChild(author);
-    
-    item.appendChild(imgElement);
-    item.appendChild(contentDiv);
+    const html = `
+        <a class="list-group-item list-group-item-action d-flex gap-3 align-items-center"
+           data-bs-toggle="modal"
+           data-bs-target="#postModal"
+           data-author="${post.author}"
+           data-permlink="${post.permlink}">
 
-    return item;
+            <img src="${image}" width="80" height="60" class="rounded" alt="Capa do post: ${post.title}">
+            
+            <div>
+                <h6 class="mb-1">${post.title}</h6>
+                <small class="text-muted">by @${post.author}</small>
+            </div>
+        </a>
+    `;
+
+    // Converte a string HTML em um nó DOM real
+    const tempDiv = document.createElement('div');
+    tempDiv.innerHTML = html.trim();
+    
+    // Retorna o primeiro filho (o elemento <a>)
+    return tempDiv.firstChild;
+}
+
+export function convertMarkdownToHtml(markdownText) {
+    // A função marked.parse() faz o trabalho pesado de conversão de Markdown para HTML.
+    // O `marked.js` deve ser carregado no index.html antes deste script.
+    return marked.parse(markdownText || '', { sanitize: true }); 
 }
